@@ -8,22 +8,19 @@ library(tmap)  # plot spatially
 library(raster)# make raster
 library(gstat) # Use gstat's idw routine
 library(sp)    # Used for the spsample function
-
-
-# The kriging code is from here: https://mgimond.github.io/Spatial/interpolation-in-r.html
-
-
-
 setwd("C:/Users/jmorris/Desktop/Research/Analysis/GIS/Vector Data")
 
-# read in wetland boundary and water level shape files
+
+# Read in the single day WL data ------------------------------------------
+
+dataday <- ymd("2019-04-01")
+
+WL <- as_Spatial(st_read(paste0("C:/Users/jmorris/Desktop/Research/Analysis/GIS/Vector Data/WL_shp/", dataday, ".shp")))
+
+
+# Read in Geographic Data -------------------------------------------------
 B <-  as_Spatial(st_read("AOIreproj.gpkg"))
-WL <- as_Spatial(st_read("WL_shp/wl_2019-06-18.shp"))
-
-# Set bounding box of water level file to that of boundary
 WL@bbox <- B@bbox
-
-testdat <- st_as_sf(WL)
 
 # Plot to check
 
@@ -87,7 +84,13 @@ tm_shape(r.m) +
   tm_shape(WL) + tm_dots(size=0.2) +
   tm_legend(legend.outside=TRUE)
 
-writeRaster(r.m, filename="C:/Users/jmorris/Desktop/Research/Analysis/GIS/Rasters/WL_KrigeMaps/wl_2019-06-18krige.tif", format="GTiff", overwrite=TRUE)
+writeRaster(r.m, filename= paste0("C:/Users/jmorris/Desktop/Research/Analysis/GIS/Rasters/WL_KrigeMaps/", dataday, ".tif"), format="GTiff", overwrite=TRUE)
+
+
+
+
+##############################################################################################################
+############################# Variance Stuff #################################################################
 
 # Plot variance data. This is generated when Krige() is used
 
