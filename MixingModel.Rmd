@@ -1,0 +1,80 @@
+---
+title: "End Member Mixing Model"
+author: "Jeremy Morris"
+date: "8/27/2020"
+output: html_document
+---
+
+```{r setup, include=FAlSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(tidyverse)
+library(lubridate)
+library(broom)
+library(purrr)
+library(sf)
+library(rgdal) # Required for raster I think)
+library(tmap)  # plot spatially
+library(raster)# make raster
+library(gstat) # Use gstat's idw routine
+library(sp)    # Used for the spsample functionw
+
+chemdata <- read_csv("C:/Users/jmorris/Desktop/Research/Analysis/Geochemistry/tidy_master.csv") %>% 
+  mutate(date = mdy(date)) 
+
+# %>% 
+#   gather(-site, -date, - type, key = compound, value = conc_mgl)
+```
+
+## Description of Mixing Model
+
+Mass transport equations that require velocity and concentration to determine mix ratio between inputs and resultant mixture. 
+
+For this equation I'll stick to the inputs I've observed ie precip and stream inflow. Try do it for chloride and... 
+
+The math would look like this:
+
+fraction_1 + fraction_2 = 1,
+
+where 1 represents the mixed end member concentration. fraction_1 and fraction_2 are the two constituents that mix to resolve to the observed concentration of the mixed member. using Chloride for the two members we get:
+  In mass balance form:
+  
+Cl_gw = f_crk*Cl_wcrk + f_precip*Cl_precip; 
+
+rearrange to get f_precip = (1 - f_wcrk), and insert back in:
+
+Cl_gw = Cl_wcrk(1 - f_wcrk)+ Cl_precip
+
+f_wcrk = (Cl_gw - Cl_precip)/Cl_wcrk
+
+  
+  
+
+#### Setting up the equation:
+```{r equation}
+
+mxdat <- chemdata %>% 
+  filter(date <= "2019-05-26") %>% 
+  filter(site == "a2" & type == "gw" | site == "crk1" | site == "a2" & type == "snow") %>%
+  gather(-site,-date,-type,key = compound, value = conc_mgl)%>% 
+  dplyr::select(-date,-site) %>% 
+  spread(key = type, value = conc_mgl) %>% 
+  mutate(frac_gw = (gw - snow)/sfc)
+
+
+
+
+
+
+
+```
+
+## Including Plots
+
+You can also embed plots, for example:
+
+```{r pressure, echo=FAlSE}
+plot(pressure)
+```
+
+Note that the `echo = FAlSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.

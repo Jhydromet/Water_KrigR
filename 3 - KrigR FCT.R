@@ -8,20 +8,17 @@ library(tmap)  # plot spatially
 library(raster)# make raster
 library(gstat) # Use gstat's idw routine
 library(sp)    # Used for the spsample function
+library(mapview)
 
-setwd("C:/Users/jmorris/Desktop/Research/Analysis/GIS/Vector Data")
+setwd("E:/Jeremy's MSc Research/Hydrometric and GIS/Water Data/Daily_WL_Shapefiles")
 
-basemap <- raster::raster("C:\\Users\\jmorris\\Desktop\\Research\\Analysis\\GIS\\Rasters\\WetlandDEMsmall.tif")
-
-files <- dir(pattern = "*.shp")
-files
-
-dataday = "2019-07-01"
+dataday = seq(from = as.Date("2019-04-01"), to = as.Date("2019-09-01"), by = "days")
+# Test day dataday = as.Date("2019-04-01")
 
 KrigR <- function(dataday) {
   
-  WL <- as_Spatial(st_read(paste0("C:/Users/jmorris/Desktop/Research/Analysis/GIS/Vector Data/WL_shp/", ymd(dataday), ".shp")))
-  B <-  as_Spatial(st_read("C:/Users/jmorris/Desktop/Research/Analysis/GIS/Vector Data/AOIreproj.gpkg"))
+  WL <- as_Spatial(st_read(paste0(ymd(dataday), ".shp")))
+  B <-  as_Spatial(st_read("E:/Jeremy's MSc Research/Hydrometric and GIS/GIS Data/Vector Data/AOI.gpkg"))
   WL@bbox <- B@bbox
   grd         <- as.data.frame(spsample(WL, "regular", n = 50000))
   names(grd)  <- c("X","Y")
@@ -39,30 +36,28 @@ KrigR <- function(dataday) {
   r <- raster(dat.krg)
   r.m <- mask(r, B)
   
-  writeRaster(r.m, filename= paste0("C:/Users/jmorris/Desktop/Research/Analysis/GIS/Rasters/WL_KrigeMaps/", dataday, ".tif"), format="GTiff", overwrite=TRUE)
+  writeRaster(r.m, filename= paste0("E:/Jeremy's MSc Research/Hydrometric and GIS/GIS Data/Raster Data/Krige Tiffs/", dataday, ".tif"), format="GTiff", overwrite=TRUE)
   
   WL$wt_elev <- sprintf("%0.1f", WL$cal_wte_m)
 
 }
 
 
-lapply(files, KrigR)
+lapply(dataday, KrigR)
+
+mapview(B)
 
 
+basemap <- raster::raster("E:/Jeremy's MSc Research/Hydrometric and GIS/GIS Data/Raster Data/Ancient Forest Wetland LIDAR/AF_DEM.tif")
 
+plt <-   tm_shape(r.m) +
+  tm_raster(n=10, palette="Blues", auto.palette.mapping=FALSE,
+            title="Water Table Elevation \n(m.a.s.l)", midpoint = NA) +
+  tm_shape(WL) + tm_markers(text = "cal_wte_m",size=0.2) +
+  tm_text("cal_wte_m", just="left", xmod=.5, size = 0.7) +
+  tm_legend(legend.outside=TRUE)
 
-
-# 
-# plt <- tm_shape(basemap)+
-#   tm_raster(palette = "Greys")+
-#   tm_shape(r.m) +
-#   tm_raster(n=10, palette="Blues", auto.palette.mapping=FALSE, 
-#             title="Water Table Elevation \n(m.a.s.l)", midpoint = NA) +
-#   tm_shape(WL) + tm_dots(size=0.2) +
-#   tm_text('wt_elev', just="left", xmod=.5, size = 0.7) +
-#   tm_legend(legend.outside=TRUE)
-
-
+plt
 
 
 # Variance plotting, could be added later to loop? maybe doesnt matter -------------------------

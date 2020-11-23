@@ -5,8 +5,9 @@ library(purrr)
 library(sf)
 library(sp)
 library(plotly)
+library(mapview)
 
-setwd("C:/Users/jmorris/Desktop/Research/Analysis/Water Levels/Working Data/Groundwater/For Analysis")
+setwd("E:/Jeremy's MSc Research/Hydrometric and GIS/Water Data/Groundwater/For Analysis")
 
 ###################### Load up data #######################
 files <- dir(pattern = "*-G.csv") # pull the file names from folder
@@ -24,9 +25,17 @@ data.rw$time <- replace_na(data.rw$time, 00:00) #fix NAs in time (at midnight)
 data.rw$datetime = dmy_hms(paste(data.rw$date,data.rw$time))
 data.rw$date <- dmy(data.rw$date) # set date format
 
-data.rw %>%
+# current data plot
+
+p <- data.rw %>%
   ggplot()+
-  geom_line(aes(datetime,raw_val, colour = site))
+  geom_line(aes(datetime,site, colour = site), size = 2) + 
+  labs(x = "Date", y = "Site", title = paste0(Sys.Date()," Tidied WL Logger Data"))+
+  scale_colour_discrete(guide = FALSE)
+
+p
+
+ggsave(paste0("E:/Jeremy's MSc Research/Hydrometric and GIS/Water Data/Groundwater/Plots/",Sys.Date(),"_Tidied_WL_Data.png"), p, scale = .95)
 
 ##### Easy cleaner plots ############
 
@@ -51,16 +60,24 @@ data.rw %>%
 # -------------------------------------------------------------------------
 # Read in spatial, log book, and calibration data, join them --------------
 
-shp <- read_sf("C:/Users/jmorris/Desktop/Research/Analysis/GIS/Vector Data/Stations.shp") %>% 
+# piezo sites
+shp <- read_sf("Piezo_elev.shp") %>% 
   filter(site != "PRECIP" & site != "CRK1" & site != "CRK2" & site != "SLIM" & site != "B5")%>%
   mutate(G = "-G",
          site = paste(site,G, sep = ""))%>%
   dplyr::select(site,elevations, id)
 
+# plot to check
+mapview(shp)
+  
+
 cal <-read_csv("Calibration Values.csv")
 
 data <- full_join(data.rw, cal, by = "site")
 data <- full_join(data, shp)
+data <- st_as_sf(data)
+
+# Calculate calibrated water levels (top of casing to water, ground to water, water elevation) Then filter out the unwanted columns
 
 data <- data %>%
   mutate(cal_tocw_cm = (m*raw_val+b)/10,
@@ -69,15 +86,45 @@ data <- data %>%
   dplyr::select(-m, -b, -serial) %>% 
   filter(site != "B9-G" & site != "WCRK-G" & site != "ECRK-G" & site != "SLIM")
 
+# group by day and site, then take daily means
+
+daily.data <- data %>% 
+  dplyr::group_by(site, date, trans) %>% 
+  dplyr::summarise(cal_wte_m = mean(cal_wte_m)) %>% 
+  ungroup()
+
+
+###############################################################################################
+# Bind in Fraser dataset too
+
+fraser <- read_sf("Fraser_Timeseries.shp") %>% 
+  mutate(site = as.character(site),
+         trans = as.character(trans))
+
+
+# pltt to check sites
+mapview(fraser)
+
+bonded <- rbind(daily.data, fraser)
+
 # check by plot
 
-data %>%
+p <- bonded %>%
+  filter(date >= dmy("01-04-2019") & date <= dmy('01-09-2019')) %>% 
+  group_by(site, date, trans) %>% 
+  summarise(cal_wte_m = mean(cal_wte_m)) %>% 
   ggplot()+
-  geom_line(aes(datetime,cal_wte_m, colour = site))
+  geom_line(aes(date,cal_wte_m, colour = site, linetype = trans))+
+  labs(x = "Month", y = "Water Table Elevation (m.a.s.l.)", title = "Water Level Data 2019", colour = "Site", linetype = "Transect")
+
+p
+
+ggsave("C:/Users/jmorris/Desktop/Research/Diagrams/Aug2020/2019_WT_TimeseriesPlot.png", p, dpi = 300, scale = 0.95)
+
 
 # Write up the master 15 min datasheet
 
-write_csv(data, "15min_waterlevel.csv")
+write_csv(bonded, "daily_waterlevel.csv")
 
 
 
@@ -86,14 +133,15 @@ write_csv(data, "15min_waterlevel.csv")
 
 daterange <- seq(ymd("2019-04-01"), ymd("2019-09-01"), by = "day")
 
-for (dataday in as.list(daterange)){
-  
-daily.wl <- st_as_sf(data) %>% 
-  dplyr::select(date,time,site,cal_wte_m, geometry) %>% 
-  filter(date == dataday) %>% 
-  group_by(date,site) %>% 
-  summarise(cal_wte_m = mean(cal_wte_m, na.rm = T))
+dataday = "2019-04-01"
 
-st_write(daily.wl, paste0("C:/Users/jmorris/Desktop/Research/Analysis/GIS/Vector Data/WL_shp/", dataday, ".shp"))
+WL_SHAPER <- function(daterange){
+  
+daily.wl <- st_as_sf(bonded) %>% 
+  dplyr::select(date,site,cal_wte_m, geometry) %>% 
+  filter(date == daterange)
+
+st_write(daily.wl, paste0("E:/Jeremy's MSc Research/Hydrometric and GIS/Water Data/Daily_WL_Shapefiles/", daterange, ".shp"))
 }
 
+lapply(daterange,WL_SHAPER)

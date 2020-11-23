@@ -25,6 +25,6 @@ dtmn.fn<-function(x){
         return(x.df)
 }
 
-lapply("C1-G.csv",dtmn.fn)
+lapply("TC1-G.csv",dtmn.fn)
 
  

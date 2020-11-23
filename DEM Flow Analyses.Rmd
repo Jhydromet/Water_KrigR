@@ -1,0 +1,40 @@
+---
+title: "LIDAR Flow Paths"
+author: "Jeremy Morris"
+date: "8/28/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(lubridate)
+library(broom)
+library(purrr)
+library(sf)
+library(rgdal) # Required for raster I think)
+library(tmap)  # plot spatially
+library(raster)# make raster
+library(gstat) # Use gstat's idw routine
+library(sp)    # Used for the spsample function
+library(mapview)
+```
+
+I'm  going to try calculate cumulative flow paths. The result of this analysis is ideally a raster where the cell values indicate the accumulation of water flowing to this point.
+
+```{r Load DEM, make slope, aspect, and flowdir calculations}
+
+AF_DEM <- raster("C:/Users/jmorris/Desktop/Research/Analysis/GIS/Rasters/WetlandDEM.tif")
+
+
+slope <- terrain(AF_DEM, opt="slope")
+aspect <- terrain(AF_DEM, opt="aspect")
+flowdr <- terrain(AF_DEM, opt="flowdir")
+
+hill <- hillShade(slope,aspect, 40,270)
+
+tm_shape(aspect)+
+  tm_raster(n=10,palette="Greys", auto.palette.mapping=FALSE)
+
+```
+
